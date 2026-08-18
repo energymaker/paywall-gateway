@@ -1,161 +1,88 @@
-# Financial Data Paywall Gateway — MVP (Day 1–2)
+Financial Data Paywall Gateway + Cross-Rail Policy Engine
 
-A paywall-as-a-service layer for financial/alt-data providers: wrap any API
-endpoint, set a price, and let AI agents pay per call via an x402-style
-HTTP 402 challenge — while every transaction feeds a reputation/discovery
-layer from day one.
+A paywall-as-a-service layer for financial and alt-data providers, plus a spending policy engine that governs what an AI agent can spend across different payment rails.
 
-## What's built and tested here
+Two things live in this repo:
 
-- **402 challenge/response flow** — an agent hitting a paid endpoint without
-  proof gets a 402 with the price; retrying with proof gets the real data.
-- **Provider + endpoint config** — no-code pricing setup via two POST calls.
-- **Transaction ledger** — every call (challenged, paid, blocked, failed) is
-  logged, forming the raw audit trail.
-- **Velocity-based reputation event logging** — an agent calling too fast in
-  a rolling window gets flagged and recorded, seeding the future trust layer.
-- **Public directory** — a live listing of paywalled endpoints, the seed of
-  the discovery layer agents would eventually browse.
-- **Provider dashboard** — revenue, call volume, unique paying agents.
+Paywall gateway (Day 1-4): lets a data provider wrap any API endpoint, set a price, and get paid per call by AI agents using an x402-style HTTP 402 flow.
+Policy engine (Day 5): lets an enterprise set one spending policy for an agent, enforced the same way no matter which payment rail that agent uses.
+Part 1: Paywall gateway
+What's built and tested
+402 challenge/response flow. An agent hits a paid endpoint with no payment proof and gets a 402 back with the price. It retries with proof and gets the real data.
+Provider and endpoint config. Set up pricing with two POST calls, no code required.
+Transaction ledger. Every call gets logged: challenged, paid, blocked, or failed. This is the audit trail.
+Velocity-based reputation logging. If an agent calls too fast in a rolling window, it gets flagged. This is the seed of a future trust layer.
+Public directory. A live list of paywalled endpoints, the start of a discovery layer agents could browse.
+Provider dashboard. Revenue, call volume, unique paying agents.
 
-All of the above ran successfully end-to-end in `test_flow.py` against a
-mock financial data provider.
+All of this runs end to end in test_flow.py against a mock financial data provider.
 
-## Running it yourself
-
-```bash
+Running it yourself
+bash
 python -m venv venv
 source venv/bin/activate   # on Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Terminal 1 — mock upstream financial data provider
+# Terminal 1: mock upstream financial data provider
 uvicorn mock_provider:app --port 8001
 
-# Terminal 2 — the gateway itself
+# Terminal 2: the gateway itself
 uvicorn app.main:app --port 8000
 
-# Terminal 3 — run the full simulated flow
+# Terminal 3: run the full simulated flow
 python test_flow.py
-```
 
-Then browse `http://127.0.0.1:8000/directory` in a browser to see the
-public listing, or `http://127.0.0.1:8000/docs` for interactive API docs
-(FastAPI generates this automatically).
+Then open http://127.0.0.1:8000/directory to see the public listing, or http://127.0.0.1:8000/docs for interactive API docs (FastAPI generates these automatically).
 
-## Day 3–4 update: real x402 verification wired in
+Real x402 verification
 
-`app/x402_integration.py` now uses the official `x402` PyPI SDK (the same
-one referenced in Coinbase's docs) — not a stub. It:
+app/x402_integration.py uses the official x402 PyPI SDK, the same one referenced in Coinbase's docs. It's not a stub. It registers a real EVM "exact" scheme for USDC on Base, builds real x402 payment requirements for the 402 response, and verifies real payment headers against the public facilitator at https://x402.org/facilitator.
 
-- registers a real EVM "exact" scheme for USDC on Base
-- builds real x402 payment requirements for the 402 response
-- verifies real payment headers against the public facilitator at
-  `https://x402.org/facilitator`
+In this build environment specifically, network access is restricted to a fixed allow-list that doesn't include x402.org. So the facilitator call fails fast (a 4-second timeout by design) and the gateway falls back to the simpler stub behavior so the rest of the system keeps working end to end. You'll see this in the server log:
 
-**In this build sandbox specifically**, network access is restricted to a
-fixed allow-list that does not include `x402.org`, so the facilitator call
-fails fast (by design — a 4-second timeout) and the gateway falls back to
-the simple Day 1-2 stub behaviour so the rest of the system keeps working
-end-to-end. You'll see this clearly in the server log:
-
-```
 Could not reach x402 facilitator (https://x402.org/facilitator) within 4.0s.
 Falling back to stub verification for this run.
 Error: Facilitator get_supported failed (403): Host not in allowlist: x402.org.
-```
 
-That's a network-allowlist limitation of *this build environment*, not a
-bug in the integration. Deploy this anywhere with normal outbound network
-access (your own machine, a VPS, a cloud function) and it will talk to the
-real facilitator with no code changes.
+That's a limitation of this build environment, not a bug in the integration. Deploy this anywhere with normal outbound network access (your own machine, a VPS, a cloud function) and it talks to the real facilitator with no code changes.
 
-## What's still stubbed / left for you (honest list)
+What's still stubbed here (honest list)
+Wallet signing isn't wired into the agent side of this repo. This repo is the server (resource/paywall) side of x402. An agent that actually pays needs its own wallet plus the x402 client SDK (x402.client) to sign and attach a real payment header. That's the piece to build or wire into a test agent once you have real network access to verify against. (The policy engine's agent_client/ folder does include a real wallet signer, see Part 2 below.)
+Real financial data provider: no new code needed. upstream_url on an Endpoint is just a config field. Point it at a real API, like Alpha Vantage's demo endpoint or Polygon.io with a free-tier key, instead of the mock provider when you register the endpoint.
+Velocity threshold is a placeholder (more than 10 calls in 30 seconds). Tune this once you have real usage data. Call patterns vary a lot by use case.
+No auth or API keys yet on the provider config endpoints. Fine for local testing, not for a public deployment.
+Part 2: Cross-rail spending policy engine
 
-- **Wallet signing isn't implemented on the agent side.** This repo is the
-  *server* (resource/paywall side) of x402. An agent actually paying you
-  needs its own wallet + the `x402` client-side SDK (`x402.client`) to sign
-  and attach a real payment header — that's the next piece to build or
-  wire into a test agent once you have real network access to verify
-  against.
-- **Real financial data provider**: no new code is needed — `upstream_url`
-  on an `Endpoint` is just a config field. Point it at a real API (e.g.
-  Alpha Vantage's demo endpoint, or Polygon.io with a free-tier key)
-  instead of the mock provider when you register the endpoint.
-- **Velocity threshold is a placeholder** (>10 calls / 30s). Tune this once
-  you have real usage data — financial data call patterns vary a lot by use
-  case (a backtest agent looks very different from a live-monitoring one).
-- **No auth/API keys yet** for the provider config endpoints — fine for
-  local testing, not for a public deployment.
+The gateway above is the supply side: it helps providers charge agents. This is the demand side: an enterprise-facing policy layer that governs what an agent can spend, enforced the same way no matter which payment rail it uses.
 
-## Suggested next steps
+app/policy_models.py and app/policy_engine.py implement a scoped, narrowing-only policy hierarchy: account, then team, then agent. There are five enforcement checks: per-transaction cap, daily cumulative cap, velocity (calls per minute), category allowlist, and rail allowlist. A child scope can only tighten what its parent allows, never widen it. So handing an agent to a new team can never quietly give it more spending power.
 
-1. Deploy this somewhere with open outbound network access and confirm a
-   real facilitator round-trip (the log line above will show success
-   instead of the fallback warning).
-2. Build or borrow a minimal x402 client (the SDK's `x402.client` module)
-   to act as a real paying agent for testing.
-3. Point one real endpoint at a real financial/alt-data API.
-4. Add basic auth to the provider config endpoints before onboarding a
-   real outside provider.
+agent_client/policy_client.py is the actual product: a PolicyGuard that wraps any rail's payment call with a check before spend happens. Policy is enforced before a payment attempt reaches the rail, not audited after the fact.
 
-## Day 5 update: cross-rail spending policy engine
+The core claim, proven in demo_cross_rail.py
 
-The gateway above is the supply side (helping providers charge agents).
-This adds the demand side: an enterprise-facing policy layer that governs
-what an agent is allowed to spend, enforced identically no matter which
-payment rail it uses.
+One agent has a $10/day cap. It spends $7 through x402. It then tries to spend $5 through a second, unrelated rail (a Stripe Issuing-style mock in agent_client/mock_stripe_rail.py). The second attempt gets blocked. Not because that rail has its own $10 cap (it has no idea what the agent spent on x402), but because the shared PolicyGuard already knows $7 was spent today, on any rail.
 
-`app/policy_models.py` and `app/policy_engine.py` implement a scoped,
-narrowing-only policy hierarchy (account -> team -> agent) with five
-enforcement checks: per-transaction cap, daily cumulative cap, velocity
-(calls/minute), category allowlist, and rail allowlist. A child scope can
-only tighten what its parent allows, never widen it -- so handing an
-agent to a new team can never silently grant it more spending power.
-
-`agent_client/policy_client.py` is the actual product surface: a
-`PolicyGuard` that wraps any rail's payment call with a pre-spend check.
-Policy is enforced *before* a payment attempt reaches the rail, not
-audited after the fact.
-
-**The core claim, proven end-to-end in `demo_cross_rail.py`:** a single
-agent with a $10/day cap spends $7 via x402, then attempts $5 via a
-second, unrelated rail (a Stripe Issuing-style mock in
-`agent_client/mock_stripe_rail.py`). The second attempt is blocked --
-not because that rail has its own $10 cap (it doesn't know anything
-about the agent's x402 spend), but because the shared `PolicyGuard`
-already knows $7 was spent today, on any rail. Neither Coinbase's agent
-wallet limits nor Stripe Issuing's card limits can produce this behaviour
-on their own, since each only sees its own rail.
+Neither Coinbase's agent wallet limits nor Stripe Issuing's own card limits can do this on their own, since each only sees its own rail.
 
 Run it:
-```
+
 python demo_cross_rail.py
-```
 
-Unit tests covering all five checks plus the narrowing-only hierarchy:
-```
+Unit tests covering all five checks plus the hierarchy:
+
 python test_policy_engine.py
-```
 
-**Honest list of what's still stubbed:**
-- The second rail (`mock_stripe_rail.py`) is a mock, not a real Stripe
-  Issuing integration. The policy logic it's tested against is real; the
-  rail call itself is not yet.
-- The policy engine currently runs in-process against the same SQLite DB
-  as the demo/tests. A real deployment would run this as its own service
-  an enterprise's agent infrastructure calls over the network, with the
-  x402 flow in `agent_client/agent_test.py` wired to check policy before
-  it signs, not just alongside it.
-- No dashboard yet for configuring policies or browsing the audit log --
-  `PolicyCheckLog` rows exist and are queryable, but there's no UI on top
-  of them yet.
+There's also a combined demo (record_demo.py) that generates a real Ethereum wallet, signs a real message with it, runs the full test suite, and runs the cross-rail proof, all in one script, useful for recording or screen-sharing.
 
-**Suggested next steps:**
-1. Replace the mock Stripe rail with a real Stripe Issuing test-mode
-   integration.
-2. Wire `PolicyGuard.attempt()` directly into `agent_test.py`'s real x402
-   signing flow, so the whole cross-rail demo runs on genuinely live
-   signing rather than a lambda standing in for it.
-3. A minimal read-only endpoint exposing `PolicyCheckLog` so the audit
-   trail is visible over HTTP, not just queryable in-process.
-
+What's still stubbed here (honest list)
+The second rail is a mock, not a real Stripe Issuing integration. The policy logic tested against it is real. The rail call itself is not, yet.
+The policy engine runs in-process against the same SQLite database as the demo and tests. A real deployment would run this as its own service that an enterprise's agent infrastructure calls over the network, with the x402 flow in agent_client/agent_test.py wired to check policy before it signs, not just alongside it.
+No dashboard yet for configuring policies or browsing the audit log. PolicyCheckLog rows exist and are queryable, but there's no UI on top of them.
+Suggested next steps
+Replace the mock Stripe rail with a real Stripe Issuing test-mode integration.
+Wire PolicyGuard.attempt() directly into agent_test.py's real x402 signing flow, so the cross-rail demo runs on live signing instead of a stand-in.
+Add a minimal read-only endpoint exposing PolicyCheckLog so the audit trail is visible over HTTP, not just queryable in-process.
+Deploy the gateway somewhere with open outbound network access and confirm a real facilitator round-trip.
+Point one real endpoint at a real financial or alt-data API.
+Add basic auth to the provider config endpoints before onboarding a real outside provider.
