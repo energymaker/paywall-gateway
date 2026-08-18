@@ -97,3 +97,65 @@ real facilitator with no code changes.
 3. Point one real endpoint at a real financial/alt-data API.
 4. Add basic auth to the provider config endpoints before onboarding a
    real outside provider.
+
+## Day 5 update: cross-rail spending policy engine
+
+The gateway above is the supply side (helping providers charge agents).
+This adds the demand side: an enterprise-facing policy layer that governs
+what an agent is allowed to spend, enforced identically no matter which
+payment rail it uses.
+
+`app/policy_models.py` and `app/policy_engine.py` implement a scoped,
+narrowing-only policy hierarchy (account -> team -> agent) with five
+enforcement checks: per-transaction cap, daily cumulative cap, velocity
+(calls/minute), category allowlist, and rail allowlist. A child scope can
+only tighten what its parent allows, never widen it -- so handing an
+agent to a new team can never silently grant it more spending power.
+
+`agent_client/policy_client.py` is the actual product surface: a
+`PolicyGuard` that wraps any rail's payment call with a pre-spend check.
+Policy is enforced *before* a payment attempt reaches the rail, not
+audited after the fact.
+
+**The core claim, proven end-to-end in `demo_cross_rail.py`:** a single
+agent with a $10/day cap spends $7 via x402, then attempts $5 via a
+second, unrelated rail (a Stripe Issuing-style mock in
+`agent_client/mock_stripe_rail.py`). The second attempt is blocked --
+not because that rail has its own $10 cap (it doesn't know anything
+about the agent's x402 spend), but because the shared `PolicyGuard`
+already knows $7 was spent today, on any rail. Neither Coinbase's agent
+wallet limits nor Stripe Issuing's card limits can produce this behaviour
+on their own, since each only sees its own rail.
+
+Run it:
+```
+python demo_cross_rail.py
+```
+
+Unit tests covering all five checks plus the narrowing-only hierarchy:
+```
+python test_policy_engine.py
+```
+
+**Honest list of what's still stubbed:**
+- The second rail (`mock_stripe_rail.py`) is a mock, not a real Stripe
+  Issuing integration. The policy logic it's tested against is real; the
+  rail call itself is not yet.
+- The policy engine currently runs in-process against the same SQLite DB
+  as the demo/tests. A real deployment would run this as its own service
+  an enterprise's agent infrastructure calls over the network, with the
+  x402 flow in `agent_client/agent_test.py` wired to check policy before
+  it signs, not just alongside it.
+- No dashboard yet for configuring policies or browsing the audit log --
+  `PolicyCheckLog` rows exist and are queryable, but there's no UI on top
+  of them yet.
+
+**Suggested next steps:**
+1. Replace the mock Stripe rail with a real Stripe Issuing test-mode
+   integration.
+2. Wire `PolicyGuard.attempt()` directly into `agent_test.py`'s real x402
+   signing flow, so the whole cross-rail demo runs on genuinely live
+   signing rather than a lambda standing in for it.
+3. A minimal read-only endpoint exposing `PolicyCheckLog` so the audit
+   trail is visible over HTTP, not just queryable in-process.
+
