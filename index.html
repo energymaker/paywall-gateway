@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One policy. Every rail.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f17;
+    --panel:#121826;
+    --panel-2:#161d2c;
+    --line:#25304a;
+    --ink:#e9e4d6;
+    --muted:#8b93a7;
+    --brass:#c9a227;
+    --brass-dim:#8c7420;
+    --block:#b5453a;
+    --ok:#5a9b6b;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important;}
+  }
+
+  .wrap{max-width:880px; margin:0 auto; padding:0 28px;}
+
+  a{color:var(--brass);}
+  a:focus-visible, button:focus-visible{outline:2px solid var(--brass); outline-offset:3px;}
+
+  /* ---------- hero ---------- */
+  .hero{padding:96px 0 64px; border-bottom:1px solid var(--line);}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass);
+    display:flex; align-items:center; gap:10px;
+    margin-bottom:22px;
+  }
+  .eyebrow::before{content:"§"; opacity:0.7;}
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:clamp(34px, 5.4vw, 56px);
+    line-height:1.08;
+    margin:0 0 22px;
+    letter-spacing:-0.01em;
+  }
+  h1 em{font-style:italic; color:var(--brass);}
+  .subhead{
+    font-size:18px;
+    color:var(--muted);
+    max-width:52ch;
+    margin:0 0 44px;
+  }
+
+  /* signature ledger bar */
+  .ledger-viz{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px 26px;
+    margin-bottom:16px;
+    position:relative;
+    overflow:hidden;
+  }
+  .ledger-viz .label-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted);
+    margin-bottom:14px;
+  }
+  .rail-row{display:flex; align-items:center; gap:14px; margin-bottom:10px;}
+  .rail-name{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); width:96px; flex-shrink:0;}
+  .rail-track{flex:1; height:8px; background:var(--panel-2); border-radius:99px; overflow:hidden; position:relative;}
+  .rail-fill{height:100%; border-radius:99px; background:var(--ok); width:0%;}
+  .rail-fill.blocked-attempt{background:var(--block);}
+  .rail-amt{font-family:'IBM Plex Mono',monospace; font-size:12px; width:52px; text-align:right; flex-shrink:0;}
+
+  .cap-line{
+    margin-top:16px; padding-top:14px; border-top:1px dashed var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted);
+  }
+  .stamp{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:13px;
+    color:var(--block);
+    border:1.5px solid var(--block);
+    padding:3px 9px;
+    border-radius:3px;
+    transform:rotate(-6deg);
+    opacity:0;
+    letter-spacing:0.06em;
+  }
+  .stamp.show{animation:stampIn 0.4s ease-out forwards;}
+  @keyframes stampIn{
+    0%{opacity:0; transform:rotate(-6deg) scale(1.5);}
+    60%{opacity:1; transform:rotate(-6deg) scale(0.94);}
+    100%{opacity:1; transform:rotate(-6deg) scale(1);}
+  }
+  .replay-note{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); margin-top:10px; text-align:right;}
+
+  /* ---------- video ---------- */
+  .video-frame{
+    margin-top:36px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    background:#000;
+  }
+  .video-frame video{display:block; width:100%; height:auto;}
+  .video-caption{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted);
+    padding:12px 16px; border-top:1px solid var(--line); background:var(--panel);
+  }
+
+  /* ---------- proof ledger ---------- */
+  .proof{padding:64px 0; border-bottom:1px solid var(--line);}
+  .section-label{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:28px;
+  }
+  .entry{
+    display:grid; grid-template-columns:28px 1fr; gap:18px;
+    padding:22px 0; border-top:1px solid var(--line);
+  }
+  .entry:last-child{border-bottom:1px solid var(--line);}
+  .entry .mark{font-family:'IBM Plex Mono',monospace; color:var(--brass); font-size:14px; padding-top:2px;}
+  .entry h3{
+    font-family:'Fraunces',serif; font-weight:500; font-size:20px; margin:0 0 8px;
+  }
+  .entry p{margin:0; color:var(--muted); font-size:15px; max-width:58ch;}
+
+  /* ---------- status ---------- */
+  .status{padding:64px 0; border-bottom:1px solid var(--line);}
+  .status-list{list-style:none; margin:0; padding:0; font-family:'IBM Plex Mono',monospace; font-size:14px;}
+  .status-list li{
+    display:grid; grid-template-columns:100px 20px 1fr;
+    padding:12px 0; border-top:1px solid var(--line); align-items:start;
+    color:var(--ink);
+  }
+  .status-list li:last-child{border-bottom:1px solid var(--line);}
+  .status-tag{color:var(--muted);}
+  .status-dash{color:var(--brass-dim);}
+  .status-list li p{margin:0; font-family:'Inter',sans-serif; font-size:15px; color:var(--ink);}
+  .repo-link{
+    display:inline-block; margin-top:26px; font-family:'IBM Plex Mono',monospace; font-size:13px;
+    padding:9px 14px; border:1px solid var(--brass-dim); border-radius:var(--radius); color:var(--brass);
+    text-decoration:none;
+  }
+  .repo-link:hover{border-color:var(--brass); background:var(--panel);}
+
+  /* ---------- contact ---------- */
+  .contact{padding:80px 0 100px;}
+  .contact h2{
+    font-family:'Fraunces',serif; font-weight:500; font-size:clamp(26px,3.4vw,34px);
+    max-width:24ch; margin:0 0 30px; line-height:1.2;
+  }
+  .prompt-line{
+    display:flex; align-items:center; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-size:16px;
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px 18px; background:var(--panel);
+  }
+  .prompt-line .chevron{color:var(--brass);}
+  .prompt-line a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--brass-dim);}
+  .prompt-line a:hover{border-bottom-color:var(--brass);}
+
+  footer{
+    padding:28px 0 60px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="eyebrow">Cross-rail spend ledger</div>
+    <h1>One spending policy.<br>Every payment rail. <em>No exceptions.</em></h1>
+    <p class="subhead">AI agents pay for things now, on more than one rail at once. Nobody enforces one policy across all of them. This does.</p>
+
+    <div class="ledger-viz" id="ledgerViz">
+      <div class="label-row"><span>AGENT: demo-agent-1</span><span>DAILY CAP: $10.00</span></div>
+
+      <div class="rail-row">
+        <div class="rail-name">x402</div>
+        <div class="rail-track"><div class="rail-fill" id="fillX402"></div></div>
+        <div class="rail-amt" id="amtX402">$0.00</div>
+      </div>
+
+      <div class="rail-row">
+        <div class="rail-name">stripe_issuing</div>
+        <div class="rail-track"><div class="rail-fill blocked-attempt" id="fillStripe"></div></div>
+        <div class="rail-amt" id="amtStripe">$0.00</div>
+      </div>
+
+      <div class="cap-line">
+        <span id="capStatus">spent today, across both rails: $0.00 / $10.00</span>
+        <span class="stamp" id="stampBlocked">BLOCKED</span>
+      </div>
+      <div class="replay-note"><a href="#" id="replayLink">replay</a></div>
+    </div>
+
+    <div class="video-frame">
+      <video controls playsinline preload="metadata">
+        <source src="policy_engine_demo.mp4" type="video/mp4">
+        Your browser does not support embedded video. <a href="policy_engine_demo.mp4">Download the demo</a> instead.
+      </video>
+      <div class="video-caption">Live run: real wallet signing, the real test suite, and the cross-rail block above, all real program output.</div>
+    </div>
+  </section>
+
+  <section class="proof">
+    <div class="section-label">Three things worth checking yourself</div>
+
+    <div class="entry">
+      <div class="mark">01</div>
+      <div>
+        <h3>Real signing, not a mockup</h3>
+        <p>Every agent identity in this system is backed by a real cryptographic wallet and a real signature. Nothing here is simulated for show.</p>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="mark">02</div>
+      <div>
+        <h3>Policy that can't be widened by accident</h3>
+        <p>An account sets the outer limit. A team can only tighten it. An agent can only tighten it further. No config change anywhere in the chain can quietly grant more spending power than the account allows.</p>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="mark">03</div>
+      <div>
+        <h3>Proven across rails, not just claimed</h3>
+        <p>One agent, one $10/day limit. $7 spent on one rail blocks a further $5 spend attempt on a completely different rail, because the policy engine tracks total spend, not spend per rail. Watch it happen above.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="status">
+    <div class="section-label">Exactly where this stands</div>
+    <ul class="status-list">
+      <li><span class="status-tag">BUILT</span><span class="status-dash">—</span><p>Core policy engine: spend caps, velocity limits, category and rail allowlists, the account/team/agent hierarchy. Tested and working.</p></li>
+      <li><span class="status-tag">WIRED</span><span class="status-dash">—</span><p>One real payment rail (x402) is wired in. A second rail is a working mock, standing in for a real Stripe Issuing integration that's next.</p></li>
+      <li><span class="status-tag">OPEN</span><span class="status-dash">—</span><p>No enterprise dashboard yet. The audit log exists and is queryable, just not through a UI yet.</p></li>
+      <li><span class="status-tag">LOOKING</span><span class="status-dash">—</span><p>For a small number of early users or design partners to test this against real agent traffic.</p></li>
+    </ul>
+    <a class="repo-link" href="https://github.com/energymaker/paywall-gateway" target="_blank" rel="noopener">→ full build log and source on GitHub</a>
+  </section>
+
+  <section class="contact">
+    <h2>Building with AI agents that spend money?</h2>
+    <div class="prompt-line">
+      <span class="chevron">&gt;</span>
+      <span>get in touch: <a href="https://www.linkedin.com/in/alexandru-poenaru-38271a230/" target="_blank" rel="noopener">connect on LinkedIn</a></span>
+    </div>
+  </section>
+
+  <footer>cross-rail policy engine — built in public, day by day.</footer>
+
+</div>
+
+<script>
+(function(){
+  const fillX402 = document.getElementById('fillX402');
+  const fillStripe = document.getElementById('fillStripe');
+  const amtX402 = document.getElementById('amtX402');
+  const amtStripe = document.getElementById('amtStripe');
+  const capStatus = document.getElementById('capStatus');
+  const stamp = document.getElementById('stampBlocked');
+  const replay = document.getElementById('replayLink');
+  const CAP = 10;
+
+  function animateFill(el, amtEl, from, to, label, duration){
+    const start = performance.now();
+    function frame(now){
+      const t = Math.min(1, (now - start) / duration);
+      const val = from + (to - from) * t;
+      el.style.width = (val / CAP * 100) + '%';
+      amtEl.textContent = '$' + val.toFixed(2);
+      if(t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function run(){
+    stamp.classList.remove('show');
+    fillX402.style.width = '0%'; amtX402.textContent = '$0.00';
+    fillStripe.style.width = '0%'; amtStripe.textContent = '$0.00';
+    capStatus.textContent = 'spent today, across both rails: $0.00 / $10.00';
+
+    setTimeout(function(){
+      animateFill(fillX402, amtX402, 0, 7, 'x402', 900);
+      setTimeout(function(){
+        capStatus.textContent = 'spent today, across both rails: $7.00 / $10.00';
+      }, 900);
+    }, 500);
+
+    setTimeout(function(){
+      amtStripe.textContent = '$5.00 attempt';
+      fillStripe.style.width = '18%';
+      setTimeout(function(){
+        stamp.classList.add('show');
+        capStatus.textContent = 'blocked: $5.00 on stripe_issuing would exceed $10.00 cap';
+      }, 350);
+    }, 2100);
+  }
+
+  run();
+  replay.addEventListener('click', function(e){ e.preventDefault(); run(); });
+})();
+</script>
+
+</body>
+</html>
